@@ -49,8 +49,8 @@ def generate_gradcam(model, input_tensor, rgb_img, target_category=None):
         
         # Generate the grayscale CAM (batch size 1, so we take [0])
         grayscale_cam = cam(input_tensor=input_tensor, targets=targets)[0, :]
-        
+
         # Overlay the heatmap on the original image
         cam_image = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
-        
-    return cam_image
+
+    return cam_image, grayscale_cam

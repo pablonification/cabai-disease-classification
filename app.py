@@ -370,18 +370,129 @@ if not gemini_key and os.path.exists(".env"):
                 gemini_key = line.split("=", 1)[1].strip()
                 break
 
+# Routing using query params
+page = st.query_params.get("page", "beranda")
+
 # Navbar 
-st.markdown(f"""
+nav_html = f"""
 <nav class="cabai-nav">
   <div class="logo"><img src="data:image/png;base64,{logo_base64}" style="width:120px;"></div>
   <div class="links">
-    <a href="#" class="active">Beranda</a>
-    <a href="#">Tentang Kami</a>
-    <a href="#">Dokumentasi</a>
+    <a href="?page=beranda" target="_self" class="{'active' if page == 'beranda' else ''}">Beranda</a>
+    <a href="?page=tentang" target="_self" class="{'active' if page == 'tentang' else ''}">Tentang Kami</a>
+    <a href="#" target="_self">Dokumentasi</a>
   </div>
-  <a class="nav-cta" href="#upload">MULAI SCREENING</a>
+  <a class="nav-cta" href="?page=beranda#upload" target="_self">MULAI SCREENING</a>
 </nav>
-""", unsafe_allow_html=True)
+"""
+st.markdown(nav_html, unsafe_allow_html=True)
+
+if page == "tentang":
+    st.markdown("""
+    <style>
+    .tentang-container { max-width: 1000px; margin: 0 auto; padding: 40px 20px 80px; }
+    .misi-label { font-size: 12px; font-weight: 700; color: #C82121 !important; text-transform: uppercase; letter-spacing: 2px; margin-top: 24px !important;}
+    .tentang-title { font-size: clamp(32px, 4vw, 42px); font-weight: 800; color: #062C1B; line-height: 1.2; margin: 0 0 24px; max-width: 800px; }
+    .tentang-subtitle { font-size: 16px; color: #555; line-height: 1.8; max-width: 800px; margin-bottom: 40px; }
+    .tentang-hero-img { width: 100% !important; height: 200px; object-fit: cover !important; object-position: center 30%; border-radius: 24px; margin-bottom: 80px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+    
+    .section-header { font-size: 24px; font-weight: 800; color: #062C1B; margin-bottom: 24px; position: relative; padding-bottom: 12px; display: inline-block;}
+    .section-header::after { content: ''; position: absolute; left: 0; bottom: 0; width: 60%; height: 4px; background: #C82121; border-radius: 2px; margin-bottom: 10px; margin-top: 50px }
+    
+    .kisah-text { font-size: 16px; color: #222; line-height: 1.8; font-weight: 500; }
+    
+    .value-card { padding: 32px; border-radius: 20px; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+    .value-card.light { background: #e9ecef; color: #1A1A2E; }
+    .value-card.dark { background: #062C1B; color: #ffffff !important; }
+    .value-card.dark h3 {color: #80E2A7 !important; font-size: 18px; font-weight: 800; margin: 16px 0 8px;}
+    .value-card.dark p {color: rgba(255,255,255,0.9) !important;}
+    .value-card.red { background: #C82121; color: #ffffff !important; }
+    .value-card h3 { font-size: 16px; font-weight: 800; margin: 16px 0 8px; }
+    .value-card p { font-size: 13px; opacity: 0.9; margin: 0; line-height: 1.6; }
+    .value-icon { font-size: 32px; margin-bottom: 8px; }
+    
+    .tech-card { background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); height: 100%; display:flex; flex-direction:column; }
+    .tech-card-content { padding: 32px; flex-grow: 1; }
+    .tech-card-content h3 { font-size: 22px; font-weight: 800; color: #062C1B; margin: 0 0 12px; }
+    .tech-card-content p { font-size: 14px; color: #444; line-height: 1.7; margin: 0; }
+    
+    .tech-card-dark { background: #062C1B; color: white; border-radius: 20px; padding: 32px; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+    .tech-card-dark h3 { font-size: 24px; font-weight: 800; color: #80E2A7 !important; margin: 0 0 12px; }
+    .tech-card-dark p { font-size: 14px; color: rgba(255,255,255,0.9) !important; line-height: 1.7; margin:0;}
+    
+    .css-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; margin-bottom: 80px; }
+    .css-grid-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .css-grid-tech { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; }
+    
+    @media (max-width: 768px) {
+        .css-grid-2, .css-grid-tech { grid-template-columns: 1fr; }
+        .tentang-hero-img { height: 250px; }
+    }
+    </style>
+    
+    <div class="tentang-container">
+    <div class="misi-label">MISI KAMI</div>
+    <h1 class="tentang-title">Memberdayakan Petani Cabai Melalui Kecerdasan Buatan</h1>
+    <p class="tentang-subtitle">Kami hadir untuk menjembatani kearifan lokal pertanian dengan inovasi teknologi terdepan, memastikan setiap bibit cabai tumbuh sehat dan produktif melalui deteksi dini berbasis AI.</p>
+
+    <img src="https://images.unsplash.com/photo-1546860255-95536c19724e?q=80&w=708&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" class="tentang-hero-img" alt="Pertanian Cabai">
+    
+    <div class="css-grid-2">
+        <div>
+            <h2 class="section-header">Kisah Perjalanan Kami</h2>
+            <p class="kisah-text">CabAI lahir dari kegelisahan melihat tantangan nyata yang dihadapi petani cabai di tingkat lokal. Penyakit tanaman seringkali terlambat dideteksi, mengakibatkan gagal panen yang merugikan ekonomi rumah tangga petani.</p>
+            <p class="kisah-text">Dimulai sebagai proyek riset sederhana di tahun 2023, tim kami mengumpulkan ribuan dataset citra daun cabai langsung dari lahan pertanian. Melalui kolaborasi antara agronomis dan pengembang AI, kami membangun solusi yang praktis namun presisi tinggi.</p>
+        </div>
+        <div class="css-grid-inner">
+            <div class="value-card light" style="text-align: center;">
+                <div class="value-icon"><i class="bi bi-geo-alt-fill" style="color: #C82121;"></i></div>
+                <h3>Akar Lokal</h3>
+                <p>Dibangun khusus untuk ekosistem pertanian tropis.</p>
+            </div>
+            <div class="value-card dark" style="text-align: center;">
+                <div class="value-icon"><i class="bi bi-people-fill" style="color: #B8FFCB;"></i></div>
+                <h3 style="color: #80E2A7 !important; font-size: 18px; font-weight: 800; margin: 16px 0 8px;">Kolaborasi</h3>
+                <p style="color: rgba(255,255,255,0.9) !important; font-size: 13px; margin: 0; line-height: 1.6;">Menghubungkan ahli botani dengan data scientist.</p>
+            </div>
+            <div class="value-card red" style="grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; gap: 20px; padding: 24px 32px;">
+                <div class="value-icon" style="margin:0; font-size: 32px;"><i class="bi bi-rocket-fill" style="color: #fff;"></i></div>
+                <div>
+                    <h3 style="margin: 0 0 4px; font-size: 15px; color: #fff !important;">Visi 2030</h3>
+                    <p style="font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9) !important;">Mewujudkan kedaulatan pangan nasional melalui digitalisasi lahan pertanian Indonesia.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-bottom: 40px;">
+    <h2 class="section-header" style="display: inline-block;">Teknologi Di Balik Layar</h2>
+    <style>
+        div[style*="text-align: center"] .section-header::after { left: 20%; width: 60%; }
+    </style>
+    </div>
+
+    <div class="css-grid-tech">
+    <div class="tech-card" style="flex-direction: row; align-items: stretch;">
+        <div class="tech-card-content" style="flex: 1; display:flex; flex-direction: column; justify-content: center;">
+            <h3>Akurasi 96.4%</h3>
+            <p>Model computer vision kami telah dilatih dengan lebih dari 50.000 sampel data untuk mengenali berbagai jenis hama dan penyakit daun cabai secara instan.</p>
+            <div><span style="display: inline-block; margin-top: 20px; padding: 6px 16px; background: #062C1B; color: #fff; border-radius: 99px; font-size: 11px; font-weight: 700;">
+                <i class="bi bi-patch-check-fill" style="margin-right: 5px;"></i> Diagnosa Real-Time
+            </span></div>
+        </div>
+        <div style="flex: 0.8; background: #111;">
+        <img src="https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.8;" alt="AI Tech">
+        </div>
+    </div>
+
+    <div class="tech-card-dark">
+        <div style="font-size: 32px; margin-bottom: 16px;"><i class="bi bi-eye-fill" style="color: #B8FFCB;"></i></div>
+        <h3 style="color: #fff !important; font-size: 24px; font-weight: 800; margin: 0 0 12px;">Computer Vision</h3>
+        <p style="color: rgba(255,255,255,0.9) !important; font-size: 14px; line-height: 1.7; margin: 0;">Memproses citra digital dengan algoritma deep learning untuk identifikasi pola penyakit terkecil yang seringkali luput dari mata telanjang.</p>
+    </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
 
 # Hero 
 st.markdown("""

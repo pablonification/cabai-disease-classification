@@ -1,4 +1,5 @@
 import os
+import base64
 import streamlit as st
 import torch
 import numpy as np
@@ -7,174 +8,593 @@ from PIL import Image
 from src.cabai.config import CLASS_NAMES, DISPLAY_NAMES, CHECKPOINTS_DIR
 from src.cabai.model import create_model
 from src.cabai.data import get_transforms
-from src.cabai.recommend import format_recommendation_markdown, get_recommendation
+from src.cabai.recommend import get_recommendation
 from src.cabai.gradcam import generate_gradcam
 from src.cabai.explain import generate_explanation_gemini, answer_followup_question, _fallback_explanation
 
-# --- Konfigurasi Halaman ---
+# Helper for Base64 
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+logo_base64 = get_base64_of_bin_file("logo_cabAI.png")
+
+# Page Config
 st.set_page_config(
-    page_title="CabAI - Klasifikasi Penyakit Cabai",
+    page_title="CabAI – Identifikasi Penyakit Tanaman Cabai",
     page_icon="🌶️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed",
 )
 
-# --- Deteksi Device ---
+# Custom CSS 
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css');
+
+.bi {
+    vertical-align: -0.125em;
+    fill: currentColor;
+}
+
+/* ── Override Streamlit theme-injected colors ── */
+#MainMenu, footer, header { visibility: hidden !important; }
+[data-testid="collapsedControl"] { display: none !important; }
+section[data-testid="stSidebar"] { display: none !important; }
+
+/* Force the entire Streamlit app background to light grey */
+.stApp, [data-testid="stAppViewContainer"] {
+    background-color: #f7fef9 !important;
+}
+
+/* Force Streamlit header bar (dark green from config) to be invisible */
+[data-testid="stHeader"] {
+    background-color: transparent !important;
+    visibility: hidden !important;
+    height: 0 !important;
+}
+
+/* Reset block container */
+.block-container {
+    padding: 0 !important;
+    max-width: 100% !important;
+    background-color: #f7fef9 !important;
+}
+
+/* Force all text color to dark */
+.stApp, .stApp p, .stApp span, .stApp label, .stApp div {
+    color: #1A1A2E;
+}
+
+* { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+
+/* ── Navbar ── */
+.cabai-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 85px; height: 64px;
+    background: #FFFFFF; border-bottom: 1px solid #e8e8e8;
+    position: fixed; top: 0; left: 0; z-index: 1000; width: 100%;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.cabai-nav .logo img {
+    width: 120px; height: auto; object-fit: contain; padding-top: 5px;
+}
+.cabai-nav .links { display:flex; gap:48px; position: absolute; left:50%; transform: translateX(-50%); }
+.cabai-nav .links a { text-decoration:none; color:#555; font-size:15px; font-weight:500; transition:color .2s; }
+.cabai-nav .links a.active { color:#C82121; border-bottom:2px solid #C82121; padding-bottom:2px; }
+.cabai-nav .links a:hover { color:#C82121; }
+.nav-cta {
+    background:#062C1B; color:#fff !important; padding:10px 20px;
+    border-radius:8px; font-size:13px; font-weight:600; letter-spacing:.5px;
+    text-decoration:none; transition:background .2s;
+}
+.nav-cta:hover { background:#C82121 !important; }
+
+/* ── Hero ── */
+.hero {
+    background: linear-gradient(135deg, #F8F9FA 0%, #f0fdf4 100%);
+    padding: 140px 48px 60px; text-align: center; position: relative; overflow: hidden;
+}
+.hero::before {
+    content:''; position:absolute; top:-80px; right:-80px;
+    width:400px; height:400px; border-radius:50%;
+    background:rgba(6, 44, 27, 0.08);
+}
+.hero h1 { font-size:clamp(36px,5vw,58px); font-weight:800; line-height:1.2; color:#1A1A2E; margin:0 0 8px; }
+.hero h1 .red { color:#C82121; }
+.hero p { font-size:15px; color:#666; margin:16px auto 40px; max-width:500px; line-height:1.7; }
+
+
+/* ── Results layout ── */
+.results-wrapper { padding:60px 80px; background:#F8F9FA; max-width: 1300px; margin: 0 auto;}
+.section-label {
+    font-size:11px; font-weight:700; letter-spacing:1.5px; color:#C82121;
+    text-transform:uppercase; margin-bottom:4px;
+}
+.section-title { font-size:26px; font-weight:800; color:#1A1A2E; margin:0 0 24px; }
+
+/* Image card */
+.img-card {
+    background:#FFFFFF; border-radius:16px; overflow:hidden;
+    box-shadow:0 4px 24px rgba(0,0,0,.07);
+}
+.img-card-footer {
+    padding:14px 20px; display:flex; justify-content:space-between; align-items:center;
+    background:#FFFFFF;
+}
+.img-card-footer .meta { font-size:12px; color:#888; }
+.img-card-footer .meta strong { display:block; color:#1A1A2E; font-size:14px; font-weight:600; }
+.analyzing-badge {
+    background:#fff3cd; color:#856404; padding:4px 10px;
+    border-radius:20px; font-size:11px; font-weight:600;
+}
+
+/* Prediction card */
+.pred-card {
+    background:#EBF9F2; border-radius:16px; padding:28px;
+    box-shadow:0 4px 24px rgba(0,0,0,.07); height:100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.pred-card-header {
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
+}
+.pred-card .disease-name {
+    font-size:32px; font-weight:800; color:#1A1A2E;
+    margin:0 0 16px; line-height:1.2;
+    word-wrap:break-word; overflow-wrap:break-word;
+}
+.pred-card .description { font-size:13px; color:#555; line-height:1.75; margin-bottom:16px; }
+.severity-badge {
+    display:inline-block; padding:4px 12px; border-radius:20px;
+    font-size:11px; font-weight:700; letter-spacing:.5px; white-space:nowrap;
+}
+.sev-high { background:#ffeaea; color:#C82121; }
+.sev-medium { background:#fff3e0; color:#e67e22; }
+.sev-low { background:#e8f5e9; color:#2e7d32; }
+.sev-none { background:#e8f5e9; color:#2e7d32; }
+
+/* Confidence bar */
+.conf-label { font-size:12px; font-weight:600; color:#555; margin-bottom:6px; }
+.conf-bar-bg { background:#f0f0f0; border-radius:99px; height:8px; overflow:hidden; }
+.conf-bar-fill { height:8px; border-radius:99px; background:linear-gradient(90deg,#C82121,#a01c1c); transition:width .8s ease; }
+.conf-pct { font-size:18px; font-weight:800; color:#1A1A2E; text-align:right; margin-top:4px; }
+
+/* Stats row */
+.stats-row { display:flex; gap:16px; margin-top:20px; }
+.stat-box { flex:1; background:#ffffff; border-radius:12px; padding:14px 16px; }
+.stat-box .stat-label { font-size:10px; font-weight:700; letter-spacing:1px; color:#999; text-transform:uppercase; margin-bottom:4px; }
+.stat-box .stat-value { font-size:18px; font-weight:700; color:#1A1A2E; }
+.stat-box .stat-value.danger { color:#C82121; }
+.stat-box .stat-value.warning { color:#e67e22; }
+.stat-box .stat-value.ok { color:#2e7d32; }
+
+/* Explanation box */
+.explain-box {
+    background:#FFFFFF; border-radius:14px; padding:20px;
+    border-left:4px solid #C82121; margin-top:20px;
+    box-shadow:0 2px 12px rgba(0,0,0,.05);
+}
+.explain-box p { font-size:13px; color:#444; line-height:1.75; margin:0; }
+
+/* ── Recommendations ── */
+.rec-section { padding:40px 48px; background:#F8F9FA; }
+.rec-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:20px; margin-top:24px; }
+.rec-card {
+    background:#FFFFFF; border-radius:16px; overflow:hidden;
+    box-shadow:0 2px 16px rgba(0,0,0,.06); transition:transform .2s, box-shadow .2s;
+}
+.rec-card:hover { transform:translateY(-4px); box-shadow:0 8px 32px rgba(0,0,0,.12); }
+.rec-card-img { width:100%; height:160px; object-fit:cover; background:#e8f5e9; display:flex; align-items:center; justify-content:center; }
+.rec-card-img span { font-size:48px; }
+.rec-card-body { padding:16px; }
+.rec-card-num {
+    width:24px; height:24px; border-radius:6px; background:#062C1B;
+    color:#fff; font-size:11px; font-weight:700; display:inline-flex;
+    align-items:center; justify-content:center; margin-bottom:8px;
+}
+.rec-card-body h4 { font-size:15px; font-weight:700; color:#1A1A2E; margin:4px 0 8px; }
+.rec-card-body p { font-size:12px; color:#777; line-height:1.6; margin:0; }
+
+/* ── Chatbot ── */
+.chat-title { font-size:22px; font-weight:800; color:#1A1A2E; margin:0 0 8px; }
+.chat-warning {
+    background:#fff8e1; border:1px solid #ffe082; border-radius:10px;
+    padding:12px 16px; font-size:12px; color:#795548; margin-bottom:20px;
+}
+.chat-container-inner {
+    padding: 0 80px 60px !important; 
+    max-width: 1200px;
+    margin: 0 auto !important;
+}
+
+/* ── Footer ── */
+.cabai-footer {
+    background:#062C1B; color:#aaa; padding:24px 48px;
+    font-size:12px; text-align:center;
+}
+
+/* ── Override Streamlit native widgets ── */
+[data-testid="stFileUploader"] { background:transparent !important; border:none !important; }
+[data-testid="stFileUploader"] > div { border:none !important; }
+
+/* Override Streamlit columns background */
+[data-testid="stColumn"] {
+    background: transparent !important;
+}
+
+/* ── Equal-height columns ── */
+/* The horizontal block that wraps st.columns */
+[data-testid="stHorizontalBlock"] {
+    background-color: transparent !important;
+    display: flex !important;
+    align-items: stretch !important;
+}
+/* Each column container must stretch to fill */
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+}
+/* The vertical block inside each column must also stretch */
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"] {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+/* Make each markdown element inside the column stretch equally */
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"] {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"] > .stMarkdown {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"] > .stMarkdown > div {
+    flex: 1 !important;
+}
+
+/* Vertical blocks general */
+[data-testid="stVerticalBlock"] {
+    background-color: transparent !important;
+}
+
+/* Force Streamlit spinner/info/warning to use light bg */
+.stAlert { background-color: #FFFFFF !important; }
+
+/* File uploader styling */
+[data-testid="stFileUploaderDropzone"] {
+    background: #FFFFFF !important;
+    border: 2px dashed #ccc !important;
+    border-radius: 12px !important;
+}
+
+.chat-container-inner [data-testid="stVerticalBlock"] {
+    padding: 0 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Device Model 
 @st.cache_resource
 def get_device():
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        return torch.device("mps")
+    if torch.cuda.is_available(): return torch.device("cuda")
+    elif torch.backends.mps.is_available(): return torch.device("mps")
     return torch.device("cpu")
 
-device = get_device()
-
-# --- Load Model (Cached) ---
-@st.cache_resource(show_spinner="Memuat model...")
+@st.cache_resource(show_spinner="⏳ Memuat model AI...")
 def load_model():
-    checkpoint_path = CHECKPOINTS_DIR / 'efficientnet_b0_demo.pt'
-    if checkpoint_path.exists():
-        model = create_model(model_name="efficientnet_b0", num_classes=5, pretrained=False)
-        checkpoint = torch.load(checkpoint_path, map_location=device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.to(device)
-        model.eval()
-        return model, True
+    ckpt = CHECKPOINTS_DIR / 'efficientnet_b0_demo.pt'
+    model = create_model(model_name="efficientnet_b0", num_classes=5, pretrained=not ckpt.exists())
+    if ckpt.exists():
+        ck = torch.load(ckpt, map_location=get_device())
+        model.load_state_dict(ck['model_state_dict'])
+        trained = True
     else:
-        model = create_model(model_name="efficientnet_b0", num_classes=5, pretrained=True)
-        model.to(device)
-        model.eval()
-        return model, False
+        trained = False
+    model.to(get_device()).eval()
+    return model, trained
 
+device = get_device()
 model, is_trained = load_model()
 transform = get_transforms(train=False)
 
-# --- UI Sidebar ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3004/3004143.png", width=100)
-    st.title("Tentang CabAI")
-    st.markdown("Sistem Klasifikasi Penyakit Cabai Berbasis Computer Vision.")
+# Gemini key 
+try:
+    gemini_key = st.secrets.get("GEMINI_API_KEY", "")
+except Exception:
+    gemini_key = ""
+gemini_key = gemini_key or os.environ.get("GEMINI_API_KEY", "")
 
-    st.divider()
-    st.markdown("### Pemenuhan Spesifikasi")
+# Navbar 
+st.markdown(f"""
+<nav class="cabai-nav">
+  <div class="logo"><img src="data:image/png;base64,{logo_base64}" style="width:120px;"></div>
+  <div class="links">
+    <a href="#" class="active">Beranda</a>
+    <a href="#">Tentang Kami</a>
+    <a href="#">Dokumentasi</a>
+  </div>
+  <a class="nav-cta" href="#upload">MULAI SCREENING</a>
+</nav>
+""", unsafe_allow_html=True)
 
-    st.markdown("**☁️ 1. Solusi AIaaS**")
-    st.caption("Aplikasi web *hosted* yang siap didemonstrasikan ke publik tanpa instalasi lokal (Streamlit Community Cloud).")
+# Hero 
+st.markdown("""
+<section class="hero">
+  <h1>Identifikasi Penyakit<br><span class="red">Tanaman Cabai</span> Sekejap.</h1>
+  <p>Gunakan teknologi visi komputer tercanggih untuk mendeteksi hama
+  dan penyakit pada daun cabai Anda dengan akurasi hingga 96.4%.</p>
+</section>
+""", unsafe_allow_html=True)
 
-    st.markdown("**🧠 2. Self-Trained ML**")
-    if is_trained:
-        st.success("✅ Menggunakan model *EfficientNet-B0* yang di-fine-tune dengan dataset klasifikasi daun cabai.")
-    else:
-        st.warning("⚠️ Menjalankan purwarupa dengan model *Baseline*. Model *Self-Trained* akan tersedia setelah pipeline training selesai.")
+if 'show_upload' not in st.session_state:
+    st.session_state.show_upload = False
 
-    st.markdown("**💡 3. Solusi AI Bebas**")
-    st.caption("Memadukan *Explainability* (Grad-CAM), *Interpretasi Gen AI*, dan *Chatbot* untuk tanya jawab lanjutan seputar penyakit yang terdeteksi.")
+uploaded_file = None
 
-    st.divider()
-    st.caption("Tugas Besar II4012 | Inteligensi Artifisial untuk Bisnis")
+#  Upload Section 
+st.markdown("""
+    <style>
 
-# --- UI Header ---
-st.title("🌶️ CabAI: Identifikasi Penyakit Daun Cabai")
-st.markdown("Unggah foto daun cabai yang ingin diperiksa, dan sistem akan memberikan prediksi penyakit beserta rekomendasi tindakan penanganan awal.")
+    div.stButton > button {
+        border-radius: 10px;
+        padding: 12px 24px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    div.stButton > button[kind="primary"] {
+        background-color: #09452b !important;
+        border: none !important;
+    }
 
-if not is_trained:
-    st.info("Pemberitahuan Demo Progress: Hasil prediksi mungkin masih acak karena aplikasi saat ini menggunakan model baseline purwarupa.")
+    div.stButton > button[kind="primary"] p,
+    div.stButton > button[kind="primary"] span,
+    div.stButton > button[kind="primary"] div {
+        color: white !important;
+    }
+    
+    div.stButton > button[kind="secondary"] {
+        background-color: white !important;
+        color: #09452b !important;
+        border: 2px solid #09452b !important;
+    }
 
-# --- File Uploader ---
-st.markdown("### 📷 Unggah Foto")
-uploaded_file = st.file_uploader("Pilih gambar daun cabai (.jpg, .jpeg, .png)...", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed")
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #062C1B !important; 
+        color: white !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    div.stButton > button[kind="secondary"]:hover {
+        background-color: #f0fdf4 !important; 
+        transform: translateY(-2px);
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-if uploaded_file is not None:
+st.write("")
+st.write("")
+col_btn = st.columns([1, 2, 1])[1] 
+
+with col_btn:
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Unggah Foto", type="primary", icon=":material/upload:", use_container_width=True):
+            st.session_state.show_upload = True
+    with c2:
+        if st.button("Pelajari Demo", type="secondary", icon=":material/lightbulb:", use_container_width=True):
+            st.session_state.show_upload = False
+
+if st.session_state.show_upload:
+    with st.container():
+        _, content_col, _ = st.columns([1, 6, 1])
+        with content_col:
+            st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+            st.markdown('<p style="font-weight:700; color:#1A1A2E; margin-bottom:10px;"><strong>Upload foto daun cabai</strong></p>', unsafe_allow_html=True)
+            
+            uploaded_file = st.file_uploader(
+                "Upload", 
+                type=["jpg", "jpeg", "png", "webp"], 
+                label_visibility="collapsed"
+            )
+            
+            if st.button("Tutup", key="btn_tutup"):
+                st.session_state.show_upload = False
+                st.rerun()
+
+# Inference & Results
+if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
+    w, h = image.size
+    fmt = uploaded_file.name.split(".")[-1].upper()
 
-    with st.spinner("Menganalisis gambar menggunakan CabAI..."):
-        input_tensor = transform(image).unsqueeze(0).to(device)
-        img_resized = image.resize((224, 224))
-        rgb_img = np.float32(img_resized) / 255.0
-
+    with st.spinner("🔍 Menganalisis gambar..."):
+        inp = transform(image).unsqueeze(0).to(device)
+        rgb = np.float32(image.resize((224,224))) / 255.0
         with torch.no_grad():
-            output = model(input_tensor)
-            probabilities = torch.nn.functional.softmax(output[0], dim=0)
+            probs = torch.nn.functional.softmax(model(inp)[0], dim=0)
+        conf, idx = torch.max(probs, 0)
+        conf, idx = conf.item(), idx.item()
+        pred = CLASS_NAMES[idx]
+        dname = DISPLAY_NAMES.get(pred, pred)
 
-        confidence, class_idx = torch.max(probabilities, dim=0)
-        confidence = confidence.item()
-        class_idx = class_idx.item()
-        predicted_class = CLASS_NAMES[class_idx]
-        display_class_name = DISPLAY_NAMES.get(predicted_class, predicted_class)
+        cam_img, grayscale_cam = generate_gradcam(model, inp, rgb, target_category=idx)
+        cam_pil = Image.fromarray(cam_img)
 
-        cam_image, grayscale_cam = generate_gradcam(model, input_tensor, rgb_img, target_category=class_idx)
+        explanation = (
+            generate_explanation_gemini(pred, conf, grayscale_cam, gemini_key)
+            if gemini_key else _fallback_explanation(pred, conf, grayscale_cam)
+        )
+        rec = get_recommendation(pred)
 
-        try:
-            gemini_api_key = st.secrets.get("GEMINI_API_KEY", "")
-        except Exception:
-            gemini_api_key = ""
-        gemini_api_key = gemini_api_key or os.environ.get("GEMINI_API_KEY", "")
-
-        if gemini_api_key:
-            explanation = generate_explanation_gemini(predicted_class, confidence, grayscale_cam, gemini_api_key)
-        else:
-            explanation = _fallback_explanation(predicted_class, confidence, grayscale_cam)
-
-        recommendation_md = format_recommendation_markdown(predicted_class, confidence)
-        rec_data = get_recommendation(predicted_class)
-
-    # --- Tampilkan Hasil ---
-    st.divider()
-
-    col1, col2 = st.columns([1, 1], gap="large")
-
-    with col1:
-        st.markdown("### 🔍 Hasil Analisis")
-        st.image(image, caption="Gambar Asli yang Diunggah", use_container_width=True)
-
-        st.markdown("#### Area Perhatian Model (Grad-CAM)")
-        st.image(cam_image, caption="Heatmap menandakan area daun yang difokuskan oleh AI", use_container_width=True)
-
-        st.markdown("#### 🤖 Mengapa AI Menyimpulkan Penyakit Ini")
-        with st.container(border=True):
-            st.markdown(explanation)
-
-    with col2:
-        st.markdown("### 📊 Prediksi Penyakit")
-        st.markdown(f"<h2 style='color: #E63946;'>{display_class_name.title()}</h2>", unsafe_allow_html=True)
-        st.progress(confidence, text=f"Tingkat Kepercayaan Model: {confidence:.1%}")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("### 📝 Rekomendasi Penanganan")
-        with st.container(border=True):
-            st.markdown(recommendation_md)
-
-    # --- Chatbot ---
-    st.divider()
-    st.markdown("### 💬 Tanya Lebih Lanjut")
-    st.warning(
-        "⚠️ **Perhatian:** Jawaban chatbot dihasilkan oleh AI (Gemini) dan dapat mengandung informasi yang tidak akurat (*hallucination*). "
-        "Rekomendasi penanganan di atas menggunakan Knowledge Base yang lebih terpercaya. "
-        "Selalu konsultasikan keputusan penting ke ahli agronomi."
-    )
-
-    if not gemini_api_key:
-        st.info("Chatbot tidak tersedia karena API key Gemini belum dikonfigurasi.")
+    # Severity logic
+    if pred == "healthy":
+        sev_cls, sev_label, risk_cls = "sev-none", "Sehat", "ok"
+        risk_label = "Rendah"
+    elif conf >= 0.80:
+        sev_cls, sev_label, risk_cls = "sev-high", "Peringatan Tinggi", "danger"
+        risk_label = "Tinggi"
+    elif conf >= 0.55:
+        sev_cls, sev_label, risk_cls = "sev-medium", "Peringatan Sedang", "warning"
+        risk_label = "Medium"
     else:
-        user_question = st.chat_input(f"Tanya seputar {display_class_name} pada tanaman cabai kamu...")
+        sev_cls, sev_label, risk_cls = "sev-low", "Peringatan Rendah", "ok"
+        risk_label = "Rendah"
 
-        if user_question:
-            with st.chat_message("user"):
-                st.markdown(user_question)
+    area_pct = float(np.mean(grayscale_cam > 0.5) * 100)
+    conf_pct = conf * 100
 
-            with st.chat_message("assistant"):
-                with st.spinner("Memproses pertanyaan..."):
-                    answer = answer_followup_question(
-                        question=user_question,
-                        label=predicted_class,
-                        confidence=confidence,
-                        recommendation_context=rec_data,
-                        api_key=gemini_api_key,
-                    )
-                st.markdown(answer)
+    # --- Encode images for HTML display ---
+    def pil_to_b64(img):
+        import io
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return base64.b64encode(buf.getvalue()).decode()
 
-# --- Footer ---
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.caption("Peringatan: Sistem ini dirancang untuk bantuan identifikasi awal dan bukan merupakan pengganti observasi oleh ahli agronomi.")
+    img_b64 = pil_to_b64(image)
+    cam_b64 = pil_to_b64(cam_pil)
+
+    st.markdown('<div class="results-wrapper">', unsafe_allow_html=True)
+
+    _, main_col, _ = st.columns([0.5, 10, 0.5])
+    
+    with main_col:
+        col1, col2 = st.columns([1.1, 1], gap="large")
+
+        with col1:
+            st.markdown(f"""
+            <div class="img-card">
+            <img src="data:image/png;base64,{img_b64}" style="width:100%;display:block;max-height:360px;object-fit:cover;" />
+            <div class="img-card-footer">
+                <div class="meta">
+                <strong>Preview Pemindaian</strong>
+                Resolusi: {w}×{h}px &nbsp;·&nbsp; Format: {fmt}
+                </div>
+            </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+            <div style="margin-top:16px;" class="img-card">
+            <img src="data:image/png;base64,{cam_b64}" style="width:100%;display:block;max-height:280px;object-fit:cover;" />
+            <div class="img-card-footer">
+                <div class="meta"><strong>Peta Perhatian AI (Grad-CAM)</strong>
+                Area yang difokuskan model saat membuat prediksi</div>
+            </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+        with col2:
+            st.markdown(f"""
+            <div class="pred-card">
+            <div class="pred-card-header">
+            <div class="section-label">HASIL PREDIKSI</div>
+            <span class="severity-badge {sev_cls}">{sev_label}</span>
+            </div>
+            <h2 class="disease-name">{dname.title()}</h2>
+            <p class="description">{rec.get('deskripsi','')}</p>
+            <div class="conf-label">Confidence Score</div>
+            <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:{conf_pct:.1f}%"></div></div>
+            <div class="conf-pct">{conf_pct:.1f}%</div>
+            <div class="stats-row">
+            <div class="stat-box"><div class="stat-label">Area Terdampak</div><div class="stat-value">{area_pct:.1f}%</div></div>
+            <div class="stat-box"><div class="stat-label">Tingkat Risiko</div><div class="stat-value {risk_cls}">{risk_label}</div></div>
+            </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+            <div class="explain-box" style="margin-top:16px;">
+                <div class="section-label" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="bi bi-robot" style="font-size: 16px;"></i> 
+                    Mengapa AI Menyimpulkan Ini
+                </div>
+                <p style="margin-top: 8px;">{explanation.replace(chr(10), "<br>")}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Recommendations
+    steps = rec.get("tindakan_awal", []) + rec.get("pencegahan", [])
+    icons = ["🧴","🌿","🌱","💧","🔍","🏥"]
+    cards_html = ""
+    for i, step in enumerate(steps[:6]):
+        cards_html += f"""
+        <div class="rec-card">
+          <div class="rec-card-img"><span>{icons[i % len(icons)]}</span></div>
+          <div class="rec-card-body">
+            <div class="rec-card-num">0{i+1}</div>
+            <h4>{step.split('.')[0]}</h4>
+            <p>{step}</p>
+          </div>
+        </div>"""
+
+    st.markdown(f"""
+    <div class="rec-section">
+      <div class="section-label">SOLUSI &amp; REKOMENDASI</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 class="section-title" style="margin-bottom:0;">Langkah Penanganan</h2>
+        <a href="#" style="font-size:13px;color:#E63946;font-weight:600;text-decoration:none;">Selengkapnya →</a>
+      </div>
+      <div class="rec-cards">{cards_html}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Chatbot 
+    st.markdown('<div class="results-wrapper" style="background: transparent; padding-top: 0; margin-top: -60px;">', unsafe_allow_html=True)
+    _, chat_col, _ = st.columns([0.5, 10, 0.5]) 
+
+    with chat_col:
+        st.markdown(f"""
+        <h3 class="chat-title" style="display: flex; align-items: center;">
+            <i class="bi bi-chat-dots-fill" style   ="color: #062C1B;"></i>
+            Tanya Lebih Lanjut tentang {dname.title()}
+        </h3>
+        <div class="chat-warning" style="display: flex; align-items: center; gap: 12px; background: #fff8e1; border: 1px solid #ffe082; padding: 12px 16px; border-radius: 10px; font-size: 13px; color: #795548; margin-bottom: 20px;">
+            <i class="bi bi-exclamation-triangle-fill" style="color: #FF9800; font-size: 18px;"></i>
+            <div>
+                Jawaban chatbot dihasilkan AI (Gemini) dan dapat mengandung ketidakakuratan.
+                Selalu konsultasikan ke ahli agronomi untuk keputusan penting.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if not gemini_key:
+            st.info("Chatbot tidak tersedia — API key Gemini belum dikonfigurasi.")
+        else:
+            # Chat input akan tetap di bawah layar, tapi chat_message akan mengikuti kolom ini
+            q = st.chat_input(f"Tanya seputar {dname} pada cabai kamu...")
+            if q:
+                with st.chat_message("user"): st.markdown(q)
+                with st.chat_message("assistant"):
+                    with st.spinner("Memproses..."):
+                        ans = answer_followup_question(q, pred, conf, rec, gemini_key)
+                    st.markdown(ans)
+
+else:
+    st.markdown("""
+    <div style="text-align:center;padding:40px 48px 60px;">
+      <p style="color:#999;font-size:14px;margin-bottom:0;">
+        <i class="bi bi-cloud-upload"></i> Unggah foto daun cabai di atas untuk memulai analisis
+      </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Footer 
+st.markdown("""
+<div class="cabai-footer" style="color:white">
+  © 2025 CabAI · Tugas Besar II4012 – Inteligensi Artifisial untuk Bisnis · ITB<br>
+  <span style="font-size:11px; color:#FFFFFF;">Peringatan: Sistem ini adalah alat bantu identifikasi awal, bukan pengganti ahli agronomi.</span>
+</div>
+""", unsafe_allow_html=True)

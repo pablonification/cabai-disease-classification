@@ -18,7 +18,13 @@ def get_base64_of_bin_file(bin_file):
         data = f.read()
     return base64.b64encode(data).decode()
 
-logo_base64 = get_base64_of_bin_file("logo_cabAI.png")
+# Helper to render HTML safely (strips leading whitespace per line to avoid
+# Streamlit treating indented HTML as a Markdown code block)
+def render_html(html: str):
+    cleaned = "\n".join(line.lstrip() for line in html.splitlines())
+    st.markdown(cleaned, unsafe_allow_html=True)
+
+logo_base64 = get_base64_of_bin_file("static\logo_cabAI.png")
 
 # Page Config
 st.set_page_config(
@@ -380,7 +386,7 @@ nav_html = f"""
   <div class="links">
     <a href="?page=beranda" target="_self" class="{'active' if page == 'beranda' else ''}">Beranda</a>
     <a href="?page=tentang" target="_self" class="{'active' if page == 'tentang' else ''}">Tentang Kami</a>
-    <a href="#" target="_self">Dokumentasi</a>
+    <a href="?page=dokumentasi" target="_self" class="{'active' if page == 'dokumentasi' else ''}">Dokumentasi</a>
   </div>
   <a class="nav-cta" href="?page=beranda#upload" target="_self">MULAI SCREENING</a>
 </nav>
@@ -388,19 +394,16 @@ nav_html = f"""
 st.markdown(nav_html, unsafe_allow_html=True)
 
 if page == "tentang":
-    st.markdown("""
+    render_html("""
     <style>
     .tentang-container { max-width: 1000px; margin: 0 auto; padding: 40px 20px 80px; }
     .misi-label { font-size: 12px; font-weight: 700; color: #C82121 !important; text-transform: uppercase; letter-spacing: 2px; margin-top: 24px !important;}
     .tentang-title { font-size: clamp(32px, 4vw, 42px); font-weight: 800; color: #062C1B; line-height: 1.2; margin: 0 0 24px; max-width: 800px; }
     .tentang-subtitle { font-size: 16px; color: #555; line-height: 1.8; max-width: 800px; margin-bottom: 40px; }
     .tentang-hero-img { width: 100% !important; height: 200px; object-fit: cover !important; object-position: center 30%; border-radius: 24px; margin-bottom: 80px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
-    
     .section-header { font-size: 24px; font-weight: 800; color: #062C1B; margin-bottom: 24px; position: relative; padding-bottom: 12px; display: inline-block;}
-    .section-header::after { content: ''; position: absolute; left: 0; bottom: 0; width: 60%; height: 4px; background: #C82121; border-radius: 2px; margin-bottom: 10px; margin-top: 50px }
-    
+    .section-header::after { content: ''; position: absolute; left: 0; bottom: 0; width: 60%; height: 4px; background: #C82121; border-radius: 2px; }
     .kisah-text { font-size: 16px; color: #222; line-height: 1.8; font-weight: 500; }
-    
     .value-card { padding: 32px; border-radius: 20px; height: 100%; display: flex; flex-direction: column; justify-content: center; }
     .value-card.light { background: #e9ecef; color: #1A1A2E; }
     .value-card.dark { background: #062C1B; color: #ffffff !important; }
@@ -410,91 +413,210 @@ if page == "tentang":
     .value-card h3 { font-size: 16px; font-weight: 800; margin: 16px 0 8px; }
     .value-card p { font-size: 13px; opacity: 0.9; margin: 0; line-height: 1.6; }
     .value-icon { font-size: 32px; margin-bottom: 8px; }
-    
     .tech-card { background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); height: 100%; display:flex; flex-direction:column; }
     .tech-card-content { padding: 32px; flex-grow: 1; }
     .tech-card-content h3 { font-size: 22px; font-weight: 800; color: #062C1B; margin: 0 0 12px; }
     .tech-card-content p { font-size: 14px; color: #444; line-height: 1.7; margin: 0; }
-    
     .tech-card-dark { background: #062C1B; color: white; border-radius: 20px; padding: 32px; height: 100%; display: flex; flex-direction: column; justify-content: center; }
     .tech-card-dark h3 { font-size: 24px; font-weight: 800; color: #80E2A7 !important; margin: 0 0 12px; }
     .tech-card-dark p { font-size: 14px; color: rgba(255,255,255,0.9) !important; line-height: 1.7; margin:0;}
-    
     .css-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; margin-bottom: 80px; }
     .css-grid-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .css-grid-tech { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; }
-    
     @media (max-width: 768px) {
         .css-grid-2, .css-grid-tech { grid-template-columns: 1fr; }
         .tentang-hero-img { height: 250px; }
     }
     </style>
-    
-    <div class="tentang-container">
-    <div class="misi-label">MISI KAMI</div>
-    <h1 class="tentang-title">Memberdayakan Petani Cabai Melalui Kecerdasan Buatan</h1>
-    <p class="tentang-subtitle">Kami hadir untuk menjembatani kearifan lokal pertanian dengan inovasi teknologi terdepan, memastikan setiap bibit cabai tumbuh sehat dan produktif melalui deteksi dini berbasis AI.</p>
 
-    <img src="https://images.unsplash.com/photo-1546860255-95536c19724e?q=80&w=708&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" class="tentang-hero-img" alt="Pertanian Cabai">
-    
-    <div class="css-grid-2">
-        <div>
-            <h2 class="section-header">Kisah Perjalanan Kami</h2>
-            <p class="kisah-text">CabAI lahir dari kegelisahan melihat tantangan nyata yang dihadapi petani cabai di tingkat lokal. Penyakit tanaman seringkali terlambat dideteksi, mengakibatkan gagal panen yang merugikan ekonomi rumah tangga petani.</p>
-            <p class="kisah-text">Dimulai sebagai proyek riset sederhana di tahun 2023, tim kami mengumpulkan ribuan dataset citra daun cabai langsung dari lahan pertanian. Melalui kolaborasi antara agronomis dan pengembang AI, kami membangun solusi yang praktis namun presisi tinggi.</p>
-        </div>
-        <div class="css-grid-inner">
-            <div class="value-card light" style="text-align: center;">
-                <div class="value-icon"><i class="bi bi-geo-alt-fill" style="color: #C82121;"></i></div>
-                <h3>Akar Lokal</h3>
-                <p>Dibangun khusus untuk ekosistem pertanian tropis.</p>
+    <div class="tentang-container">
+        <div class="misi-label">MISI KAMI</div>
+        <h1 class="tentang-title">Memberdayakan Petani Cabai Melalui Kecerdasan Buatan</h1>
+        <p class="tentang-subtitle">Kami hadir untuk menjembatani kearifan lokal pertanian dengan inovasi teknologi terdepan, memastikan setiap bibit cabai tumbuh sehat dan produktif melalui deteksi dini berbasis AI.</p>
+
+        <img src="https://images.unsplash.com/photo-1546860255-95536c19724e?q=80&w=708&auto=format&fit=crop" class="tentang-hero-img" alt="Pertanian Cabai">
+
+        <div class="css-grid-2">
+            <div>
+                <h2 class="section-header">Kisah Perjalanan Kami</h2>
+                <p class="kisah-text">CabAI lahir dari kegelisahan melihat tantangan nyata yang dihadapi petani cabai di tingkat lokal. Penyakit tanaman seringkali terlambat dideteksi, mengakibatkan gagal panen yang merugikan ekonomi rumah tangga petani.</p>
+                <p class="kisah-text">Dimulai sebagai proyek riset sederhana di tahun 2023, tim kami mengumpulkan ribuan dataset citra daun cabai langsung dari lahan pertanian. Melalui kolaborasi antara agronomis dan pengembang AI, kami membangun solusi yang praktis namun presisi tinggi.</p>
             </div>
-            <div class="value-card dark" style="text-align: center;">
-                <div class="value-icon"><i class="bi bi-people-fill" style="color: #B8FFCB;"></i></div>
-                <h3 style="color: #80E2A7 !important; font-size: 18px; font-weight: 800; margin: 16px 0 8px;">Kolaborasi</h3>
-                <p style="color: rgba(255,255,255,0.9) !important; font-size: 13px; margin: 0; line-height: 1.6;">Menghubungkan ahli botani dengan data scientist.</p>
-            </div>
-            <div class="value-card red" style="grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; gap: 20px; padding: 24px 32px;">
-                <div class="value-icon" style="margin:0; font-size: 32px;"><i class="bi bi-rocket-fill" style="color: #fff;"></i></div>
-                <div>
-                    <h3 style="margin: 0 0 4px; font-size: 15px; color: #fff !important;">Visi 2030</h3>
-                    <p style="font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9) !important;">Mewujudkan kedaulatan pangan nasional melalui digitalisasi lahan pertanian Indonesia.</p>
+            <div class="css-grid-inner">
+                <div class="value-card light" style="text-align: center;">
+                    <div class="value-icon"><i class="bi bi-geo-alt-fill" style="color: #C82121;"></i></div>
+                    <h3>Akar Lokal</h3>
+                    <p>Dibangun khusus untuk ekosistem pertanian tropis.</p>
+                </div>
+                <div class="value-card dark" style="text-align: center;">
+                    <div class="value-icon"><i class="bi bi-people-fill" style="color: #B8FFCB;"></i></div>
+                    <div style="color: #80E2A7 !important; font-size: 18px; font-weight: 800; margin: 16px 0 8px;">Kolaborasi</div>
+                    <div style="color: rgba(255,255,255,0.9) !important; font-size: 13px; margin: 0; line-height: 1.6;">Menghubungkan ahli botani dengan data scientist.</div>
+                </div>
+                <div class="value-card red" style="grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; gap: 20px; padding: 24px 32px;">
+                    <div class="value-icon" style="margin:0; font-size: 32px;"><i class="bi bi-rocket-fill" style="color: #fff;"></i></div>
+                    <div>
+                        <div style="margin: 0 0 4px; font-size: 15px; color: #fff !important; font-weight: 800;">Visi 2030</div>
+                        <div style="font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9) !important;">Mewujudkan kedaulatan pangan nasional melalui digitalisasi lahan pertanian Indonesia.</div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div style="text-align: center; margin-bottom: 40px;">
-    <h2 class="section-header" style="display: inline-block;">Teknologi Di Balik Layar</h2>
-    <style>
-        div[style*="text-align: center"] .section-header::after { left: 20%; width: 60%; }
-    </style>
-    </div>
-
-    <div class="css-grid-tech">
-    <div class="tech-card" style="flex-direction: row; align-items: stretch;">
-        <div class="tech-card-content" style="flex: 1; display:flex; flex-direction: column; justify-content: center;">
-            <h3>Akurasi 96.4%</h3>
-            <p>Model computer vision kami telah dilatih dengan lebih dari 50.000 sampel data untuk mengenali berbagai jenis hama dan penyakit daun cabai secara instan.</p>
-            <div><span style="display: inline-block; margin-top: 20px; padding: 6px 16px; background: #062C1B; color: #fff; border-radius: 99px; font-size: 11px; font-weight: 700;">
-                <i class="bi bi-patch-check-fill" style="margin-right: 5px;"></i> Diagnosa Real-Time
-            </span></div>
+        <div style="text-align: center; margin-bottom: 40px;">
+            <h2 class="section-header" style="display: inline-block;">Teknologi Di Balik Layar</h2>
         </div>
-        <div style="flex: 0.8; background: #111;">
-        <img src="https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.8;" alt="AI Tech">
+
+        <div class="css-grid-tech">
+            <div class="tech-card" style="flex-direction: row; align-items: stretch;">
+                <div class="tech-card-content" style="flex: 1; display:flex; flex-direction: column; justify-content: center;">
+                    <h3>Akurasi 96.4%</h3>
+                    <p>Model computer vision kami telah dilatih dengan lebih dari 50.000 sampel data untuk mengenali berbagai jenis hama dan penyakit daun cabai secara instan.</p>
+                    <div><span style="display: inline-block; margin-top: 20px; padding: 6px 16px; background: #062C1B; color: #fff; border-radius: 99px; font-size: 11px; font-weight: 700;"><i class="bi bi-patch-check-fill" style="margin-right: 5px;"></i> Diagnosa Real-Time</span></div>
+                </div>
+                <div style="flex: 0.8; background: #111;">
+                    <img src="https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.8;" alt="AI Tech">
+                </div>
+            </div>
+            <div class="tech-card-dark">
+                <div style="font-size: 32px; margin-bottom: 16px;"><i class="bi bi-eye-fill" style="color: #B8FFCB;"></i></div>
+                <div style="color: #fff !important; font-size: 24px; font-weight: 800; margin: 0 0 12px;">Computer Vision</div>
+                <div style="color: rgba(255,255,255,0.9) !important; font-size: 14px; line-height: 1.7; margin: 0;">Memproses citra digital dengan algoritma deep learning untuk identifikasi pola penyakit terkecil yang seringkali luput dari mata telanjang.</div>
+            </div>
         </div>
     </div>
-
-    <div class="tech-card-dark">
-        <div style="font-size: 32px; margin-bottom: 16px;"><i class="bi bi-eye-fill" style="color: #B8FFCB;"></i></div>
-        <h3 style="color: #fff !important; font-size: 24px; font-weight: 800; margin: 0 0 12px;">Computer Vision</h3>
-        <p style="color: rgba(255,255,255,0.9) !important; font-size: 14px; line-height: 1.7; margin: 0;">Memproses citra digital dengan algoritma deep learning untuk identifikasi pola penyakit terkecil yang seringkali luput dari mata telanjang.</p>
-    </div>
-    </div>
-    """, unsafe_allow_html=True)
+    """)
     st.stop()
 
-# Hero 
+
+if page == "dokumentasi":
+    import os
+    _gradcam_path = os.path.join("static", "grad_cam_contoh.png")
+    if os.path.exists(_gradcam_path):
+        gradcam_b64 = get_base64_of_bin_file(_gradcam_path)
+        gradcam_src = f"data:image/png;base64,{gradcam_b64}"
+    else:
+        gradcam_src = "https://images.unsplash.com/photo-1590682680695-43b964a3ae17?w=400&auto=format&fit=crop"
+    render_html(f"""
+    <style>
+    .dok-container {{ max-width: 1000px; margin: 0 auto; padding: 40px 20px 80px; }}
+    .dok-label {{ font-size: 12px; font-weight: 700; color: #C82121 !important; text-transform: uppercase; letter-spacing: 2px; margin-top: 24px; }}
+    .dok-title {{ font-size: clamp(28px, 3.5vw, 38px); font-weight: 800; color: #062C1B; line-height: 1.2; margin: 0 0 12px; }}
+    .dok-subtitle {{ font-size: 15px; color: #555; line-height: 1.7; margin-bottom: 40px; max-width: 700px; }}
+    .dok-section-title {{ font-size: 22px; font-weight: 800; color: #062C1B; margin: 60px 0 8px; position: relative; padding-bottom: 12px; display: inline-block; }}
+    .dok-section-title::after {{ content: ''; position: absolute; left: 0; bottom: 0; width: 60%; height: 4px; background: #C82121; border-radius: 2px; }}
+    .dok-section-sub {{ font-size: 14px; color: #666; margin: 8px 0 28px; }}
+    .dok-step-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 60px; }}
+    .dok-step-card {{ background: #fff; border: 1px solid #e8e8e8; border-radius: 16px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); }}
+    .dok-step-num {{ width: 32px; height: 32px; background: #062C1B; color: #fff !important; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; margin-bottom: 16px; }}
+    .dok-step-title {{ font-size: 16px; font-weight: 800; color: #1A1A2E; margin: 0 0 10px; }}
+    .dok-step-desc {{ font-size: 13px; color: #666; line-height: 1.7; margin: 0 0 20px; }}
+    .dok-step-img {{ width: 100% !important; border-radius: 12px; object-fit: cover !important; height: 180px !important; }}
+    .dok-step-upload-box {{ border: 2px dashed #ccc; border-radius: 12px; padding: 36px 20px; text-align: center; color: #aaa; font-size: 13px; margin-top: 16px; }}
+    .dok-result-container {{ background: #f5f7f5; border-radius: 20px; padding: 32px; margin-bottom: 60px; }}
+    .dok-result-grid {{ display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px; align-items: start; }}
+    .dok-preview-box {{ background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; }}
+    .dok-preview-label {{ font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; }}
+    .dok-preview-meta {{ font-size: 11px; color: #aaa; }}
+    .dok-pred-card {{ background: #fff; border-radius: 14px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }}
+    .dok-badge-high {{ background: #C82121; color: #fff; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 99px; letter-spacing: 0.5px; }}
+    .dok-pred-disease {{ font-size: 22px; font-weight: 800; color: #062C1B; margin: 10px 0 6px; }}
+    .dok-pred-desc {{ font-size: 12px; color: #777; line-height: 1.6; margin-bottom: 16px; }}
+    .dok-score-bar-bg {{ background: #eee; border-radius: 99px; height: 6px; margin-bottom: 4px; }}
+    .dok-score-bar {{ background: #C82121; height: 6px; border-radius: 99px; width: 82.5%; }}
+    .dok-stat-row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }}
+    .dok-stat-box {{ background: #f5f7f5; border-radius: 10px; padding: 12px 16px; }}
+    .dok-stat-label {{ font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #999; font-weight: 700; }}
+    .dok-stat-val {{ font-size: 20px; font-weight: 800; color: #062C1B; margin-top: 2px; }}
+    .dok-stat-val.red {{ color: #C82121; }}
+    .dok-ai-box {{ background: #f0f4f0; border-radius: 10px; padding: 14px 16px; font-size: 12px; color: #444; line-height: 1.7; }}
+    .dok-ai-label {{ font-size: 10px; font-weight: 700; color: #062C1B; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }}
+    .dok-chat-section {{ background: #f5f7f5; border-radius: 20px; padding: 32px; margin-bottom: 60px; }}
+    .dok-chat-card {{ background: #fff; border-radius: 14px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }}
+    .dok-chat-title {{ font-size: 15px; font-weight: 800; color: #1A1A2E; margin: 0 0 12px; }}
+    .dok-chat-warning {{ background: #fff8e1; border-left: 3px solid #f59e0b; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12px; color: #92400e; margin-bottom: 14px; }}
+    .dok-chat-input {{ background: #0d5f3a; border-radius: 10px; padding: 14px 50px 14px 16px; color: rgba(255,255,255,0.5) !important; font-size: 13px; position: relative; }}
+    @media (max-width: 768px) {{ .dok-step-grid, .dok-result-grid {{ grid-template-columns: 1fr; }} }}
+    </style>
+    <div class="dok-container">
+    <div class="dok-label">PANDUAN PENGGUNAAN</div>
+    <h1 class="dok-title">Panduan Memulai</h1>
+    <p class="dok-subtitle">Pelajari cara menggunakan teknologi AI kami untuk mendiagnosis kesehatan tanaman cabai Anda dalam hitungan detik melalui unggahan foto yang sederhana.</p>
+    <div class="dok-step-grid">
+    <div class="dok-step-card">
+    <div class="dok-step-num">1</div>
+    <div class="dok-step-title">Ambil Foto Daun</div>
+    <div class="dok-step-desc">Pastikan daun berada di tengah bingkai dengan pencahayaan yang cukup. AI kami bekerja paling baik dengan latar belakang yang netral.</div>
+    <img src="https://www.shutterstock.com/image-photo/sick-leaves-on-peach-tree-260nw-2465477217.jpg" class="dok-step-img" alt="Foto Daun">
+    </div>
+    <div class="dok-step-card">
+    <div class="dok-step-num">2</div>
+    <div class="dok-step-title">Unggah ke CabAI</div>
+    <div class="dok-step-desc">Gunakan zona unggah seret-dan-lepas di dashboard utama. AI akan memproses gambar Anda secara real-time menggunakan model deep learning.</div>
+    <div class="dok-step-upload-box">
+    <div style="font-size: 32px; margin-bottom: 8px;"><i class="bi bi-cloud-upload"></i></div>
+    <div style="font-size: 13px; font-weight: 600; color: #444;">Klik untuk Unggah</div>
+    <div style="font-size: 11px; color: #aaa; margin-top: 4px;">Format JPG, PNG (Maks. 5MB)</div>
+    </div>
+    </div>
+    </div>
+    <div class="dok-section-title">Memahami Hasil Diagnosis</div>
+    <p class="dok-section-sub">Penjelasan tentang tampilan hasil skrining kesehatan tanaman Anda.</p>
+    <div class="dok-result-container">
+    <div class="dok-result-grid">
+    <div>
+    <div class="dok-preview-box">
+    <img src="https://www.shutterstock.com/image-photo/sick-leaves-on-peach-tree-260nw-2465477217.jpg" style="width:100%; border-radius: 8px; height: 160px; object-fit: cover;">
+    <div class="dok-preview-label">Preview Pemindaian</div>
+    <div class="dok-preview-meta">Resolusi: 240x196px · Format: JPG</div>
+    </div>
+    <div class="dok-preview-box">
+    <img src="{gradcam_src}" style="width:100%; border-radius: 8px; height: 140px; object-fit: cover;">
+    <div class="dok-preview-label">Peta Perhatian AI (Grad-CAM)</div>
+    <div class="dok-preview-meta">Area yang digunakan model saat membuat prediksi</div>
+    </div>
+    </div>
+    <div>
+    <div class="dok-pred-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+    <div style="font-size:10px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:1px;">HASIL PREDIKSI</div>
+    <div class="dok-badge-high">Peringatan Tinggi</div>
+    </div>
+    <div class="dok-pred-disease">Whitefly / Kutu Kebul</div>
+    <div class="dok-pred-desc">Gejala terkait serangan whitefly atau kutu kebul pada daun cabai.</div>
+    <div style="font-size:11px; color:#999; margin-bottom:4px; display:flex; justify-content:space-between;"><span>Confidence Score</span><span style="font-weight:700; color:#1A1A2E;">82.5%</span></div>
+    <div class="dok-score-bar-bg"><div class="dok-score-bar"></div></div>
+    <div style="height:12px;"></div>
+    <div class="dok-stat-row">
+    <div class="dok-stat-box">
+    <div class="dok-stat-label">AREA TERDAMPAK</div>
+    <div class="dok-stat-val">37.4%</div>
+    </div>
+    <div class="dok-stat-box">
+    <div class="dok-stat-label">TINGKAT RISIKO</div>
+    <div class="dok-stat-val red">Tinggi</div>
+    </div>
+    </div>
+    <div class="dok-ai-label"><i class="bi bi-robot"></i> MENGAPA AI MENYIMPULKAN INI</div>
+    <div class="dok-ai-box">Model mendeteksi "Whitefly / kutu kebul" dengan keyakinan 83%. Area perhatian utama model berada di bagian tengah dan sisi kiri. Serangan kutu kebul menyebabkan bintik-bintik kuning kecil dan daun menjadi layu, serangga kecil putih sering ditemukan di bagian bawah daun.</div>
+    </div>
+    </div>
+    </div>
+    </div>
+    <div class="dok-section-title">Interaksi Lanjutan</div>
+    <p class="dok-section-sub">Gunakan asisten AI untuk bertanya lebih detail tentang diagnosis dan solusi spesifik untuk lahan Anda.</p>
+    <div class="dok-chat-section">
+    <div class="dok-chat-card">
+    <div class="dok-chat-title"><i class="bi bi-chat-dots-fill"></i> Tanya Lebih Lanjut tentang Whitefly / Kutu Kebul</div>
+    <div class="dok-chat-warning"><i class="bi bi-exclamation-triangle-fill" style="color: #FF9800; font-size: 18px;"></i> Jawaban chatbot AI bersifat informatif dan dapat mengandung ketidakakuratan. Selalu konsultasikan ke ahli agronomi untuk keputusan penting.</div>
+    <div class="dok-chat-input">Tanya seputar whitefly / kutu kebul pada cabai kamu…</div>
+    </div>
+    </div>
+    </div>
+    """)
+    st.stop()
+
+# Hero
 st.markdown("""
 <section class="hero">
   <h1>Identifikasi Penyakit<br><span class="red">Tanaman Cabai</span> Sekejap.</h1>
@@ -502,6 +624,7 @@ st.markdown("""
   dan penyakit pada daun cabai Anda dengan akurasi hingga 96.4%.</p>
 </section>
 """, unsafe_allow_html=True)
+
 
 if 'show_upload' not in st.session_state:
     st.session_state.show_upload = False
@@ -561,7 +684,8 @@ with col_btn:
             st.session_state.show_upload = True
     with c2:
         if st.button("Pelajari Demo", type="secondary", icon=":material/lightbulb:", use_container_width=True):
-            st.session_state.show_upload = False
+            st.query_params["page"] = "dokumentasi"
+            st.rerun()
 
 if st.session_state.show_upload:
     with st.container():
